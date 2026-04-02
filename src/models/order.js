@@ -27,7 +27,8 @@ const orderSchema = new mongoose.Schema({
   items: [orderItemSchema],
   totalAmount: {
     type: Number,
-    required: true
+    required: true,
+    min: [0, 'Total amount must be positive']
   },
   status: {
     type: String,
@@ -37,6 +38,7 @@ const orderSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     enum: ['Cash', 'Card', 'Mobile Money'],
+    required: true,
     default: 'Cash'
   },
   paymentStatus: {
@@ -45,9 +47,9 @@ const orderSchema = new mongoose.Schema({
     default: 'Pending'
   },
   shippingAddress: {
-    street: String,
-    city: String,
-    country: String
+    street: { type: String, default: '' },
+    city: { type: String, default: 'Kigali' },
+    country: { type: String, default: 'Rwanda' }
   },
   notes: {
     type: String,
@@ -60,12 +62,14 @@ const orderSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Update completedAt when status changes to Completed
 orderSchema.pre('save', function(next) {
-  if (this.isModified('status') && this.status === 'Completed') {
+  if (this.isModified('status') && this.status === 'Completed' && !this.completedAt) {
     this.completedAt = new Date();
   }
   next();
 });
 
 const Order = mongoose.model('Order', orderSchema);
+
 module.exports = Order;

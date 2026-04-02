@@ -7,7 +7,7 @@ const connectDB = async () => {
       useUnifiedTopology: true,
     });
     
-    console.log("✅DATABASE ALREADY CONNECTED");
+    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     
     mongoose.connection.on('error', (err) => {
       console.error(`MongoDB connection error: ${err}`);
@@ -18,7 +18,7 @@ const connectDB = async () => {
     });
     
   } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
+    console.error(`Error: ${error.message}`);
     process.exit(1);
   }
 };

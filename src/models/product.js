@@ -44,7 +44,9 @@ const productSchema = new mongoose.Schema({
   },
   ratings: {
     type: Number,
-    default: 0
+    default: 0,
+    min: 0,
+    max: 5
   },
   numReviews: {
     type: Number,
@@ -54,6 +56,7 @@ const productSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Calculate discounted price
 productSchema.virtual('discountedPrice').get(function() {
   if (this.discount > 0) {
     return this.price * (1 - this.discount / 100);
@@ -61,8 +64,10 @@ productSchema.virtual('discountedPrice').get(function() {
   return this.price;
 });
 
+// Ensure virtuals are included in JSON
 productSchema.set('toJSON', { virtuals: true });
 productSchema.set('toObject', { virtuals: true });
 
 const Product = mongoose.model('Product', productSchema);
+
 module.exports = Product;

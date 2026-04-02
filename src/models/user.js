@@ -6,7 +6,8 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please add a name'],
     trim: true,
-    minlength: [2, 'Name must be at least 2 characters']
+    minlength: [2, 'Name must be at least 2 characters'],
+    maxlength: [50, 'Name cannot exceed 50 characters']
   },
   email: {
     type: String,
@@ -14,7 +15,10 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
-    match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please add a valid email']
+    match: [
+      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+      'Please add a valid email'
+    ]
   },
   password: {
     type: String,
@@ -29,16 +33,17 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    trim: true
+    trim: true,
+    match: [/^\+?[\d\s-]{10,}$/, 'Please add a valid phone number']
   },
   profileImage: {
     type: String,
     default: '/uploads/profiles/default-profile.jpg'
   },
   address: {
-    street: String,
-    city: String,
-    country: String
+    street: { type: String, default: '' },
+    city: { type: String, default: 'Kigali' },
+    country: { type: String, default: 'Rwanda' }
   },
   isActive: {
     type: Boolean,
@@ -51,6 +56,7 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Encrypt password using bcrypt
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
     next();
@@ -59,9 +65,11 @@ userSchema.pre('save', async function(next) {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
+// Match user entered password to hashed password
 userSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 const User = mongoose.model('User', userSchema);
+
 module.exports = User;

@@ -4,10 +4,9 @@
   "description": "Backend for HAHA Supermarket",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "nodemon seed.js",
     "dev": "nodemon server.js",
-    "seed": "node scripts/seed.js",
-    "setup": "node setup.js"
+    "seed": "node scripts/seed.js"
   },
   "dependencies": {
     "express": "^4.18.2",
