@@ -2,53 +2,52 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const ensureDirectoryExists = (dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`📁 Created directory: ${dir}`);
-  }
+// Ensure upload directories exist
+const ensureDirectories = () => {
+  const dirs = ['uploads/products', 'uploads/supermarkets'];
+  dirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`📁 Created directory: ${dir}`);
+    }
+  });
 };
 
+ensureDirectories();
+
+// Configure storage
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination: (req, file, cb) => {
     let uploadPath = 'uploads/';
-    
     if (req.baseUrl && req.baseUrl.includes('products')) {
       uploadPath += 'products/';
-    } else if (req.baseUrl && req.baseUrl.includes('users')) {
-      uploadPath += 'profiles/';
-    } else {
-      uploadPath += 'others/';
+    } else if (req.baseUrl && req.baseUrl.includes('supermarkets')) {
+      uploadPath += 'supermarkets/';
     }
-    
-    ensureDirectoryExists(uploadPath);
     cb(null, uploadPath);
   },
-  filename: function (req, file, cb) {
+  filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    const filename = uniqueSuffix + ext;
-    cb(null, filename);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
   }
 });
 
+// File filter
 const fileFilter = (req, file, cb) => {
   const allowedTypes = /jpeg|jpg|png|gif|webp/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype);
-
+  
   if (mimetype && extname) {
     cb(null, true);
   } else {
-    cb(new Error('Only image files are allowed (jpeg, jpg, png, gif, webp)'));
+    cb(new Error('Only image files are allowed'));
   }
 };
 
 const upload = multer({
   storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB
-  },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: fileFilter
 });
 

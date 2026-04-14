@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');  // Correct path to models folder
+const User = require('../models/UserModel');
 
 const protect = async (req, res, next) => {
   let token;
@@ -26,7 +26,6 @@ const protect = async (req, res, next) => {
       
       next();
     } catch (error) {
-      console.error(error);
       return res.status(401).json({ 
         success: false,
         message: 'Not authorized, token failed' 
@@ -48,9 +47,20 @@ const admin = (req, res, next) => {
   } else {
     return res.status(403).json({ 
       success: false,
-      message: 'Not authorized as admin' 
+      message: 'Admin access required' 
     });
   }
 };
 
-module.exports = { protect, admin };
+const vendor = (req, res, next) => {
+  if (req.user && (req.user.role === 'vendor' || req.user.role === 'admin')) {
+    next();
+  } else {
+    return res.status(403).json({ 
+      success: false,
+      message: 'Vendor access required' 
+    });
+  }
+};
+
+module.exports = { protect, admin, vendor };

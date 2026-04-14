@@ -1,43 +1,40 @@
-const User = require('../models/User');
+const User = require('../models/UserModel');
 const generateToken = require('../utils/generateToken');
-const { validationResult } = require('express-validator');
 
-const registerUser = async (req, res) => {
+// @desc    Register user
+// @route   POST /api/auth/register
+// @access  Public
+const register = async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ 
-        success: false,
-        errors: errors.array() 
-      });
-    }
-
-    const { name, email, password, phone } = req.body;
-
+    const { name, email, password, phone, location, role } = req.body;
+    
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ 
         success: false,
-        message: 'User already exists with this email' 
+        message: 'User already exists' 
       });
     }
-
+    
     const user = await User.create({
       name,
       email,
       password,
-      phone: phone || ''
+      phone,
+      location,
+      role: role || 'customer'
     });
-
+    
     if (user) {
       res.status(201).json({
         success: true,
         _id: user._id,
         name: user.name,
         email: user.email,
-        phone: user.phone,
         role: user.role,
-        token: generateToken(user._id, user.role)
+        phone: user.phone,
+        location: user.location,
+        token: generateToken(user._id)
       });
     } else {
       res.status(400).json({ 
@@ -49,71 +46,49 @@ const registerUser = async (req, res) => {
     console.error(error);
     res.status(500).json({ 
       success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: error.message 
     });
   }
 };
 
-const loginUser = async (req, res) => {
+// @desc    Login user
+// @route   POST /api/auth/login
+// @access  Public
+const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Please provide email and password' 
-      });
-    }
-
+    
     const user = await User.findOne({ email }).select('+password');
-
-    if (!user) {
+    
+    if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ 
         success: false,
         message: 'Invalid email or password' 
       });
     }
-
-    if (!user.isActive) {
-      return res.status(401).json({ 
-        success: false,
-        message: 'Account is deactivated. Please contact admin.' 
-      });
-    }
-
-    const isPasswordMatch = await user.matchPassword(password);
-
-    if (!isPasswordMatch) {
-      return res.status(401).json({ 
-        success: false,
-        message: 'Invalid email or password' 
-      });
-    }
-
-    user.lastLogin = new Date();
-    await user.save();
-
+    
     res.json({
       success: true,
       _id: user._id,
       name: user.name,
       email: user.email,
-      phone: user.phone,
       role: user.role,
-      profileImage: user.profileImage,
-      token: generateToken(user._id, user.role)
+      phone: user.phone,
+      location: user.location,
+      token: generateToken(user._id)
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ 
       success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: error.message 
     });
   }
 };
 
+// @desc    Get current user
+// @route   GET /api/auth/me
+// @access  Private
 const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('-password');
@@ -125,28 +100,9 @@ const getMe = async (req, res) => {
     console.error(error);
     res.status(500).json({ 
       success: false,
-      message: 'Server error' 
+      message: error.message 
     });
   }
 };
 
-const logoutUser = async (req, res) => {
-  try {
-    res.json({
-      success: true,
-      message: 'Logged out successfully'
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error' 
-    });
-  }
-};
-
-module.exports = {
-  registerUser,
-  loginUser,
-  getMe,
-  logoutUser
-};
+module.exports = { register, login, getMe };

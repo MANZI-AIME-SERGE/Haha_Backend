@@ -1,126 +1,147 @@
-const Order = require('../models/Order');
-const Product = require('../models/Product');
+const Order = require('../models/OrderModel');
+const Product = require('../models/ProductModel');
+const Supermarket = require('../models/SupermarketModel');
+const Delivery = require('../models/DeliveryModel');
 
 const createOrder = async (req, res) => {
   try {
-    const { items, paymentMethod, shippingAddress, notes } = req.body;
-    
+    const { items, deliveryAddress, paymentMethod, notes } = req.body;
+
     if (!items || items.length === 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'No order items' 
+        message: 'No items in order'
       });
     }
-    
+
     let totalAmount = 0;
     const orderItems = [];
-    
+
     for (const item of items) {
       const product = await Product.findById(item.productId);
-      
       if (!product) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           success: false,
-          message: `Product not found: ${item.productId}` 
+          message: `Product not found: ${item.productId}`
         });
       }
-      
+
       if (product.stock < item.quantity) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: `Insufficient stock for ${product.name}. Available: ${product.stock}` 
+          message: `${product.name} has insufficient stock. Available: ${product.stock}`
         });
       }
-      
-      const price = product.discount > 0 ? product.discountedPrice : product.price;
-      const itemTotal = price * item.quantity;
+
+      const itemTotal = product.price * item.quantity;
       totalAmount += itemTotal;
-      
+
       orderItems.push({
         productId: product._id,
         name: product.name,
+        price: product.price,
         quantity: item.quantity,
-        price: price
+        supermarketId: product.supermarketId
       });
-      
+
       product.stock -= item.quantity;
       product.isAvailable = product.stock > 0;
       await product.save();
     }
-    
+
+    const deliveryFee = 500 + Math.floor(Math.random() * 500);
+    const grandTotal = totalAmount + deliveryFee;
+
     const order = await Order.create({
-      userId: req.user._id,
+      customerId: req.user._id,
       items: orderItems,
       totalAmount,
-      paymentMethod: paymentMethod || 'Cash',
-      shippingAddress: shippingAddress || {
-        street: req.user.address?.street || '',
-        city: req.user.address?.city || 'Kigali',
-        country: req.user.address?.country || 'Rwanda'
-      },
-      notes: notes || ''
+      deliveryFee,
+      grandTotal,
+      deliveryAddress,
+      paymentMethod: paymentMethod || 'cash',
+      notes
     });
-    
+
+    const supermarket = await Supermarket.findById(orderItems[0].supermarketId);
+    const pickupAddress = supermarket ? `${supermarket.name}, ${supermarket.location}` : 'Store pickup';
+
+    const delivery = await Delivery.create({
+      orderId: order._id,
+      pickupAddress,
+      deliveryAddress: `${deliveryAddress.street}, ${deliveryAddress.district}, ${deliveryAddress.city}`,
+      customerPhone: deliveryAddress.phone,
+      fee: deliveryFee,
+      status: 'pending'
+    });
+
+    order.deliveryId = delivery._id;
+    await order.save();
+
     res.status(201).json({
       success: true,
-      order
+      order,
+      delivery
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: error.message
     });
   }
 };
 
 const getMyOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.user._id })
+    const orders = await Order.find({ customerId: req.user._id })
+      .populate('deliveryId')
       .sort({ createdAt: -1 });
-    
+
     res.json({
       success: true,
       orders
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: error.message
     });
   }
 };
 
-const getOrderById = async (req, res) => {
+const getVendorOrders = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id)
-      .populate('userId', 'name email phone');
-    
-    if (!order) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Order not found' 
+    const supermarket = await Supermarket.findOne({ ownerId: req.user._id });
+    if (!supermarket) {
+      return res.json({
+        success: true,
+        orders: []
       });
     }
-    
-    if (order.userId._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
-      return res.status(403).json({ 
-        success: false,
-        message: 'Not authorized to view this order' 
-      });
-    }
-    
+
+    const orders = await Order.find({
+      'items.supermarketId': supermarket._id
+    })
+      .populate('customerId', 'name phone location')
+      .populate('deliveryId')
+      .sort({ createdAt: -1 });
+
+    const filteredOrders = orders.map(order => ({
+      ...order._doc,
+      items: order.items.filter(item => item.supermarketId.toString() === supermarket._id.toString())
+    }));
+
     res.json({
       success: true,
-      order
+      orders: filteredOrders
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: error.message
     });
   }
 };
@@ -128,34 +149,34 @@ const getOrderById = async (req, res) => {
 const getAllOrders = async (req, res) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
-    let query = {};
-    
-    if (status) {
-      query.status = status;
-    }
-    
-    const skip = (page - 1) * limit;
-    
+
+    const query = {};
+    if (status) query.status = status;
+
     const orders = await Order.find(query)
-      .populate('userId', 'name email')
+      .populate('customerId', 'name email phone')
+      .populate('deliveryId')
       .sort({ createdAt: -1 })
-      .limit(Number(limit))
-      .skip(skip);
-    
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
     const total = await Order.countDocuments(query);
-    
+
     res.json({
       success: true,
       orders,
-      page: Number(page),
-      pages: Math.ceil(total / limit),
-      total
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: error.message
     });
   }
 };
@@ -163,66 +184,63 @@ const getAllOrders = async (req, res) => {
 const updateOrderStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    
-    if (!status) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide status'
-      });
-    }
-    
-    const order = await Order.findById(req.params.id);
-    
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    ).populate('deliveryId');
+
     if (!order) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Order not found' 
+        message: 'Order not found'
       });
     }
-    
-    order.status = status;
-    await order.save();
-    
+
+    if (status === 'delivered' || status === 'completed') {
+      if (order.deliveryId) {
+        await Delivery.findByIdAndUpdate(order.deliveryId._id, {
+          status: 'delivered',
+          actualDelivery: new Date()
+        });
+      }
+    }
+
     res.json({
       success: true,
       order
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: error.message
     });
   }
 };
 
-const getOrderStats = async (req, res) => {
+const getOrderById = async (req, res) => {
   try {
-    const totalOrders = await Order.countDocuments();
-    const pendingOrders = await Order.countDocuments({ status: 'Pending' });
-    const processingOrders = await Order.countDocuments({ status: 'Processing' });
-    const completedOrders = await Order.countDocuments({ status: 'Completed' });
-    const cancelledOrders = await Order.countDocuments({ status: 'Cancelled' });
-    
-    const completedOrdersList = await Order.find({ status: 'Completed' });
-    const totalRevenue = completedOrdersList.reduce((sum, order) => sum + order.totalAmount, 0);
-    
+    const order = await Order.findById(req.params.id)
+      .populate('customerId', 'name email phone location')
+      .populate('items.productId')
+      .populate('deliveryId');
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
     res.json({
       success: true,
-      stats: {
-        totalOrders,
-        pendingOrders,
-        processingOrders,
-        completedOrders,
-        cancelledOrders,
-        totalRevenue
-      }
+      order
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error' 
+      message: error.message
     });
   }
 };
@@ -230,8 +248,8 @@ const getOrderStats = async (req, res) => {
 module.exports = {
   createOrder,
   getMyOrders,
-  getOrderById,
+  getVendorOrders,
   getAllOrders,
   updateOrderStatus,
-  getOrderStats
+  getOrderById
 };

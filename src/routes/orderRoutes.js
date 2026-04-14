@@ -1,24 +1,21 @@
 const express = require('express');
-const { protect, admin } = require('../middleware/authMiddleware');
+const { protect, vendor, admin } = require('../middleware/authMiddleware');
 const {
   createOrder,
   getMyOrders,
-  getOrderById,
+  getVendorOrders,
   getAllOrders,
   updateOrderStatus,
-  getOrderStats
+  getOrderById
 } = require('../controllers/orderController');
 
 const router = express.Router();
 
-// Protected routes (authenticated users)
 router.post('/', protect, createOrder);
-router.get('/myorders', protect, getMyOrders);
+router.get('/my-orders', protect, getMyOrders);
 router.get('/:id', protect, getOrderById);
-
-// Admin only routes
-router.get('/', protect, admin, getAllOrders);
-router.get('/stats/overview', protect, admin, getOrderStats);
-router.put('/:id/status', protect, admin, updateOrderStatus);
+router.get('/vendor-orders', protect, vendor, getVendorOrders);
+router.get('/all', protect, admin, getAllOrders);
+router.put('/:id/status', protect, vendor, updateOrderStatus);
 
 module.exports = router;

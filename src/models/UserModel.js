@@ -5,9 +5,7 @@ const userSchema = new mongoose.Schema({
   name: {
     type: String,
     required: [true, 'Please add a name'],
-    trim: true,
-    minlength: [2, 'Name must be at least 2 characters'],
-    maxlength: [50, 'Name cannot exceed 50 characters']
+    trim: true
   },
   email: {
     type: String,
@@ -15,10 +13,7 @@ const userSchema = new mongoose.Schema({
     unique: true,
     lowercase: true,
     trim: true,
-    match: [
-      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-      'Please add a valid email'
-    ]
+    match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please add a valid email']
   },
   password: {
     type: String,
@@ -28,32 +23,25 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['customer', 'admin'],
+    enum: ['customer', 'vendor', 'admin'],
     default: 'customer'
   },
   phone: {
     type: String,
-    trim: true,
-    match: [/^\+?[\d\s-]{10,}$/, 'Please add a valid phone number']
+    trim: true
   },
-  profileImage: {
+  location: {
     type: String,
-    default: '/uploads/profiles/default-profile.jpg'
-  },
-  address: {
-    street: { type: String, default: '' },
-    city: { type: String, default: 'Kigali' },
-    country: { type: String, default: 'Rwanda' }
+    trim: true
   },
   isActive: {
     type: Boolean,
     default: true
   },
-  lastLogin: {
-    type: Date
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
-}, {
-  timestamps: true
 });
 
 // Encrypt password using bcrypt

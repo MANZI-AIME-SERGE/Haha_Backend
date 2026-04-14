@@ -1,10 +1,11 @@
 const express = require('express');
-const { protect, admin } = require('../middleware/authMiddleware');
+const { protect, vendor } = require('../middleware/authMiddleware');
 const upload = require('../config/upload');
 const {
+  addProduct,
   getProducts,
   getProductById,
-  createProduct,
+  getMyProducts,
   updateProduct,
   deleteProduct
 } = require('../controllers/productController');
@@ -15,9 +16,10 @@ const router = express.Router();
 router.get('/', getProducts);
 router.get('/:id', getProductById);
 
-// Admin only routes
-router.post('/', protect, admin, upload.single('image'), createProduct);
-router.put('/:id', protect, admin, upload.single('image'), updateProduct);
-router.delete('/:id', protect, admin, deleteProduct);
+// Vendor routes
+router.post('/', protect, vendor, upload.single('image'), addProduct);
+router.get('/my-products/list', protect, vendor, getMyProducts);
+router.put('/:id', protect, vendor, updateProduct);
+router.delete('/:id', protect, vendor, deleteProduct);
 
 module.exports = router;

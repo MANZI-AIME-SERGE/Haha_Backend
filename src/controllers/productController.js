@@ -1,112 +1,30 @@
-const Product = require('../models/Product');
-const fs = require('fs');
-const path = require('path');
+const Product = require('../models/ProductModel');
+const Supermarket = require('../models/SupermarketModel');
 
-const getProducts = async (req, res) => {
+// @desc    Add product (Vendor)
+// @route   POST /api/products
+// @access  Private/Vendor
+const addProduct = async (req, res) => {
   try {
-    const { category, search, minPrice, maxPrice, sort, page = 1, limit = 12 } = req.query;
+    const { name, description, price, category, stock } = req.body;
     
-    let query = {};
-    
-    if (category && category !== 'All') {
-      query.category = category;
-    }
-    
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
-      ];
-    }
-    
-    if (minPrice || maxPrice) {
-      query.price = {};
-      if (minPrice) query.price.$gte = Number(minPrice);
-      if (maxPrice) query.price.$lte = Number(maxPrice);
-    }
-    
-    query.isAvailable = true;
-    
-    const skip = (page - 1) * limit;
-    let sortOption = {};
-    if (sort === 'price_asc') sortOption.price = 1;
-    else if (sort === 'price_desc') sortOption.price = -1;
-    else if (sort === 'newest') sortOption.createdAt = -1;
-    else sortOption.createdAt = -1;
-    
-    const products = await Product.find(query)
-      .sort(sortOption)
-      .limit(Number(limit))
-      .skip(skip);
-    
-    const total = await Product.countDocuments(query);
-    
-    res.json({
-      success: true,
-      products,
-      page: Number(page),
-      pages: Math.ceil(total / limit),
-      total
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error', 
-      error: error.message 
-    });
-  }
-};
-
-const getProductById = async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    
-    if (!product) {
-      return res.status(404).json({ 
+    const supermarket = await Supermarket.findOne({ ownerId: req.user._id });
+    if (!supermarket) {
+      return res.status(400).json({ 
         success: false,
-        message: 'Product not found' 
+        message: 'Please register your supermarket first' 
       });
-    }
-    
-    res.json({
-      success: true,
-      product
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error' 
-    });
-  }
-};
-
-const createProduct = async (req, res) => {
-  try {
-    const { name, description, price, discount, category, stock } = req.body;
-    
-    if (!name || !description || !price || !category) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide all required fields: name, description, price, category'
-      });
-    }
-    
-    let imagePath = '/uploads/products/default-product.jpg';
-    if (req.file) {
-      imagePath = `/uploads/products/${req.file.filename}`;
     }
     
     const product = await Product.create({
       name,
       description,
-      price: Number(price),
-      discount: discount ? Number(discount) : 0,
+      price,
       category,
-      image: imagePath,
-      stock: stock ? Number(stock) : 0,
-      isAvailable: Number(stock) > 0
+      stock: stock || 0,
+      supermarketId: supermarket._id,
+      image: req.file ? `/uploads/products/${req.file.filename}` : '/uploads/products/default-product.jpg',
+      isAvailable: (stock || 0) > 0
     });
     
     res.status(201).json({
@@ -117,15 +35,50 @@ const createProduct = async (req, res) => {
     console.error(error);
     res.status(500).json({ 
       success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: error.message 
     });
   }
 };
 
-const updateProduct = async (req, res) => {
+// @desc    Get all products (Public)
+// @route   GET /api/products
+// @access  Public
+const getProducts = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const { category, supermarketId, search } = req.query;
+    let query = { isAvailable: true };
+    
+    if (category && category !== 'All') {
+      query.category = category;
+    }
+    if (supermarketId) {
+      query.supermarketId = supermarketId;
+    }
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+    
+    const products = await Product.find(query).populate('supermarketId', 'name location logo');
+    
+    res.json({
+      success: true,
+      products
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
+  }
+};
+
+// @desc    Get product by ID
+// @route   GET /api/products/:id
+// @access  Public
+const getProductById = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id).populate('supermarketId', 'name location phone email');
     
     if (!product) {
       return res.status(404).json({ 
@@ -134,24 +87,72 @@ const updateProduct = async (req, res) => {
       });
     }
     
-    if (req.file) {
-      if (product.image && product.image !== '/uploads/products/default-product.jpg') {
-        const oldImagePath = path.join(__dirname, '../../', product.image);
-        if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
-        }
-      }
-      req.body.image = `/uploads/products/${req.file.filename}`;
+    res.json({
+      success: true,
+      product
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
+  }
+};
+
+// @desc    Get my products (Vendor)
+// @route   GET /api/products/my-products
+// @access  Private/Vendor
+const getMyProducts = async (req, res) => {
+  try {
+    const supermarket = await Supermarket.findOne({ ownerId: req.user._id });
+    if (!supermarket) {
+      return res.json({
+        success: true,
+        products: []
+      });
     }
     
-    if (req.body.stock !== undefined) {
-      req.body.isAvailable = Number(req.body.stock) > 0;
+    const products = await Product.find({ supermarketId: supermarket._id });
+    
+    res.json({
+      success: true,
+      products
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
+  }
+};
+
+// @desc    Update product (Vendor)
+// @route   PUT /api/products/:id
+// @access  Private/Vendor
+const updateProduct = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Product not found' 
+      });
+    }
+    
+    const supermarket = await Supermarket.findOne({ ownerId: req.user._id });
+    if (product.supermarketId.toString() !== supermarket._id.toString()) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Not authorized to update this product' 
+      });
     }
     
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true, runValidators: true }
+      { new: true }
     );
     
     res.json({
@@ -162,16 +163,17 @@ const updateProduct = async (req, res) => {
     console.error(error);
     res.status(500).json({ 
       success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: error.message 
     });
   }
 };
 
+// @desc    Delete product (Vendor)
+// @route   DELETE /api/products/:id
+// @access  Private/Vendor
 const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-    
     if (!product) {
       return res.status(404).json({ 
         success: false,
@@ -179,32 +181,34 @@ const deleteProduct = async (req, res) => {
       });
     }
     
-    if (product.image && product.image !== '/uploads/products/default-product.jpg') {
-      const imagePath = path.join(__dirname, '../../', product.image);
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
-      }
+    const supermarket = await Supermarket.findOne({ ownerId: req.user._id });
+    if (product.supermarketId.toString() !== supermarket._id.toString()) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Not authorized to delete this product' 
+      });
     }
     
     await product.deleteOne();
-    res.json({ 
+    
+    res.json({
       success: true,
-      message: 'Product removed successfully' 
+      message: 'Product deleted successfully'
     });
   } catch (error) {
     console.error(error);
     res.status(500).json({ 
       success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: error.message 
     });
   }
 };
 
 module.exports = {
+  addProduct,
   getProducts,
   getProductById,
-  createProduct,
+  getMyProducts,
   updateProduct,
   deleteProduct
 };
