@@ -12,6 +12,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const vendorAnalyticsRoutes = require('./routes/vendorAnalyticsRoutes');
 const userRoutes = require('./routes/userRoutes');
 
 // Import middleware
@@ -54,6 +55,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/vendor/analytics', vendorAnalyticsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

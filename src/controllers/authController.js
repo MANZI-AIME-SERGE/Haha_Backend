@@ -26,16 +26,18 @@ const register = async (req, res) => {
     });
     
     if (user) {
-      res.status(201).json({
-        success: true,
+    res.status(201).json({
+      success: true,
+      user: {
         _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
         phone: user.phone,
-        location: user.location,
-        token: generateToken(user._id)
-      });
+        location: user.location
+      },
+      token: generateToken(user._id)
+    });
     } else {
       res.status(400).json({ 
         success: false,
@@ -69,12 +71,14 @@ const login = async (req, res) => {
     
     res.json({
       success: true,
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      phone: user.phone,
-      location: user.location,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+        location: user.location
+      },
       token: generateToken(user._id)
     });
   } catch (error) {

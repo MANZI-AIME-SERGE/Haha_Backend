@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const bcrypt = require('bcryptjs');
 const User = require('../src/models/UserModel');
 const Supermarket = require('../src/models/SupermarketModel');
 const Product = require('../src/models/ProductModel');
@@ -25,13 +24,13 @@ const seedDatabase = async () => {
     await Order.deleteMany();
     console.log('Cleared existing data');
     
-    const password = await bcrypt.hash('password123', 10);
+    const plainPassword = 'password123';
 
     // Create Admin
     const admin = await User.create({
       name: 'HAHA Admin',
       email: 'admin@haha.rw',
-      password,
+      password: plainPassword,
       role: 'admin',
       phone: '+250 788 000 001',
       location: 'Kigali, Rwanda'
@@ -42,7 +41,7 @@ const seedDatabase = async () => {
     const vendor1 = await User.create({
       name: 'John Kimani',
       email: 'vendor@haha.rw',
-      password,
+      password: plainPassword,
       role: 'vendor',
       phone: '+250 788 000 002',
       location: 'Kigali'
@@ -52,7 +51,7 @@ const seedDatabase = async () => {
     const vendor2 = await User.create({
       name: 'Marie Uwase',
       email: 'vendor2@haha.rw',
-      password,
+      password: plainPassword,
       role: 'vendor',
       phone: '+250 788 000 003',
       location: 'Gisenyi'
@@ -63,7 +62,7 @@ const seedDatabase = async () => {
     const customer = await User.create({
       name: 'Test Customer',
       email: 'customer@haha.rw',
-      password,
+      password: plainPassword,
       role: 'customer',
       phone: '+250 788 000 004',
       location: 'Kigali'
@@ -71,9 +70,9 @@ const seedDatabase = async () => {
     console.log(`Customer created: ${customer.email} / password123`);
 
     const customers = await User.create([
-      { name: 'Alice Mukamana', email: 'alice@example.com', password, role: 'customer', phone: '+250 788 111 111', location: 'Kigali' },
-      { name: 'Bob Nshimiyimana', email: 'bob@example.com', password, role: 'customer', phone: '+250 788 222 222', location: 'Huye' },
-      { name: 'Clare Ingabire', email: 'clare@example.com', password, role: 'customer', phone: '+250 788 333 333', location: 'Ruhengeri' },
+      { name: 'Alice Mukamana', email: 'alice@example.com', password: plainPassword, role: 'customer', phone: '+250 788 111 111', location: 'Kigali' },
+      { name: 'Bob Nshimiyimana', email: 'bob@example.com', password: plainPassword, role: 'customer', phone: '+250 788 222 222', location: 'Huye' },
+      { name: 'Clare Ingabire', email: 'clare@example.com', password: plainPassword, role: 'customer', phone: '+250 788 333 333', location: 'Ruhengeri' },
     ]);
     console.log('Additional customers created');
 
