@@ -1,5 +1,5 @@
 const express = require('express');
-const { protect, vendor } = require('../middleware/authMiddleware');
+const { protect, vendor, admin } = require('../middleware/authMiddleware');
 const upload = require('../config/upload');
 const {
   addProduct,
@@ -7,13 +7,18 @@ const {
   getProductById,
   getMyProducts,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  getAllProductsAdmin
 } = require('../controllers/productController');
 
 const router = express.Router();
 
 // Public routes
 router.get('/', getProducts);
+
+// Admin routes (must be before /:id)
+router.get('/admin/all', protect, admin, getAllProductsAdmin);
+
 router.get('/:id', getProductById);
 
 // Vendor routes

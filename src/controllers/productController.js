@@ -1,6 +1,27 @@
 const Product = require('../models/ProductModel');
 const Supermarket = require('../models/SupermarketModel');
 
+// @desc    Get all products for admin (including unapproved/unavailable)
+// @route   GET /api/products/admin/all
+// @access  Private/Admin
+const getAllProductsAdmin = async (req, res) => {
+  try {
+    const products = await Product.find()
+      .populate('supermarketId', 'name location logo status ownerId');
+    
+    res.json({
+      success: true,
+      products
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
+  }
+};
+
 // @desc    Add product (Vendor)
 // @route   POST /api/products
 // @access  Private/Vendor
@@ -47,6 +68,10 @@ const getProducts = async (req, res) => {
   try {
     const { category, supermarketId, search } = req.query;
     let query = { isAvailable: true };
+    
+    const approvedSupermarkets = await Supermarket.find({ status: 'approved' }).select('_id');
+    const approvedIds = approvedSupermarkets.map(s => s._id);
+    query.supermarketId = { $in: approvedIds };
     
     if (category && category !== 'All') {
       query.category = category;
@@ -210,5 +235,6 @@ module.exports = {
   getProductById,
   getMyProducts,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  getAllProductsAdmin
 };

@@ -7,7 +7,8 @@ const {
   getSupermarketById,
   getMySupermarket,
   getAllSupermarkets,
-  updateSupermarketStatus
+  updateSupermarketStatus,
+  deleteSupermarket
 } = require('../controllers/supermarketController');
 
 const router = express.Router();
@@ -23,5 +24,6 @@ router.get('/my-supermarket/me', protect, vendor, getMySupermarket);
 // Admin routes
 router.get('/admin/all', protect, admin, getAllSupermarkets);
 router.put('/:id/status', protect, admin, updateSupermarketStatus);
+router.delete('/:id', protect, admin, deleteSupermarket);
 
 module.exports = router;

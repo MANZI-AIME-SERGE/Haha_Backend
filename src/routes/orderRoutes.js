@@ -13,9 +13,9 @@ const router = express.Router();
 
 router.post('/', protect, createOrder);
 router.get('/my-orders', protect, getMyOrders);
-router.get('/:id', protect, getOrderById);
 router.get('/vendor-orders', protect, vendor, getVendorOrders);
 router.get('/all', protect, admin, getAllOrders);
+router.get('/:id', protect, getOrderById);
 router.put('/:id/status', protect, vendor, updateOrderStatus);
 
 module.exports = router;

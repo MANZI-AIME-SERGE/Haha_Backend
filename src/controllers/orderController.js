@@ -121,17 +121,21 @@ const getVendorOrders = async (req, res) => {
       });
     }
 
+    const supermarketIdStr = supermarket._id.toString();
+    
     const orders = await Order.find({
       'items.supermarketId': supermarket._id
     })
-      .populate('customerId', 'name phone location')
+      .populate('customerId', 'name phone email location')
       .populate('deliveryId')
       .sort({ createdAt: -1 });
 
-    const filteredOrders = orders.map(order => ({
-      ...order._doc,
-      items: order.items.filter(item => item.supermarketId.toString() === supermarket._id.toString())
-    }));
+    const filteredOrders = orders
+      .map(order => ({
+        ...order.toObject(),
+        items: order.items.filter(item => item.supermarketId?.toString() === supermarketIdStr)
+      }))
+      .filter(order => order.items.length > 0);
 
     res.json({
       success: true,

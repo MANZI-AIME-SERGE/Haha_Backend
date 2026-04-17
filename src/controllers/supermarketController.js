@@ -1,4 +1,6 @@
 const Supermarket = require('../models/SupermarketModel');
+const Product = require('../models/ProductModel');
+const Order = require('../models/OrderModel');
 
 // @desc    Register supermarket (Vendor)
 // @route   POST /api/supermarkets/register
@@ -140,10 +142,15 @@ const getAllSupermarkets = async (req, res) => {
 // @access  Private/Admin
 const updateSupermarketStatus = async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, isActive } = req.body;
+    const updateData = {};
+    
+    if (status !== undefined) updateData.status = status;
+    if (isActive !== undefined) updateData.isActive = isActive;
+    
     const supermarket = await Supermarket.findByIdAndUpdate(
       req.params.id,
-      { status },
+      updateData,
       { new: true }
     );
     
@@ -167,11 +174,45 @@ const updateSupermarketStatus = async (req, res) => {
   }
 };
 
+// @desc    Delete supermarket (Admin)
+// @route   DELETE /api/supermarkets/:id
+// @access  Private/Admin
+const deleteSupermarket = async (req, res) => {
+  try {
+    const supermarket = await Supermarket.findById(req.params.id);
+    
+    if (!supermarket) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Supermarket not found' 
+      });
+    }
+
+    await Product.deleteMany({ supermarketId: req.params.id });
+    
+    await Order.deleteMany({ 'items.supermarketId': req.params.id });
+    
+    await Supermarket.findByIdAndDelete(req.params.id);
+    
+    res.json({
+      success: true,
+      message: 'Supermarket and all related data deleted successfully'
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
+  }
+};
+
 module.exports = {
   registerSupermarket,
   getSupermarkets,
   getSupermarketById,
   getMySupermarket,
   getAllSupermarkets,
-  updateSupermarketStatus
+  updateSupermarketStatus,
+  deleteSupermarket
 };
